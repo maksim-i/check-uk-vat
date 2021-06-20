@@ -1,4 +1,6 @@
 import flask
+import base64
+import os
 import requests
 import json
 
@@ -6,23 +8,29 @@ app = flask.Flask(__name__)
 app.config['DEBUG'] = False
 
 @app.route('/', methods=['GET'])
-def home():
-    return '<p>Check a UK VAT number</p>'\
-           '<form method="POST">'\
+def index():
+    return '<p>Check a UK VAT number</p><form method="POST"><p></p>'\
            '<input name="vat"><span> </span>'\
-           '<input type="submit" value="Check">'\
-           '</form>'
+           '<input type="submit" value="Check"></form>'
+
+@app.route('/get_token', methods=['GET'])
+def get_token():
+    token = 'Token ' + str(base64.b64encode(os.urandom(24)).decode('utf-8'))
+    return token
 
 @app.route('/', methods=['POST'])
 def vat_input_redirect():
     vat = flask.request.form['vat']
-    return flask.redirect('/fiscal-number-information/GB/' + vat)
+    response = flask.redirect('/fiscal-number-information/GB/' + vat)
+    response.headers['Authorization'] = get_token()
+    return response
 
-@app.route('/fiscal-number-information/GB/<vat_id>')
-def check_vat(vat_id):
+@app.route('/fiscal-number-information/GB/<vat_input>')
+def check_vat(vat_input):
     base_url = 'https://api.service.hmrc.gov.uk'
     lookup_path = '/organisations/vat/check-vat-number/lookup/'
-    response = requests.get(base_url + lookup_path + vat_id)
+    response = requests.get(base_url + lookup_path + vat_input)
+    response.headers['Authorization'] = get_token()
     response_json = response.json()
 
     result_dict = dict()
